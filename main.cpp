@@ -1,96 +1,140 @@
 #include <iostream>
-#include <queue>
 #include <vector>
-#include <set>
+#include <queue>
+#include <algorithm>
 
-int main() {
-    std::ios::sync_with_stdio(false);
-    std::cin.tie(0);
-
+struct Graph {
     int n, m;
-    std::cin >> n >> m;
+    std::vector<std::vector<int>> G; 
+    std::vector<std::vector<int>> Gr;
+    std::vector<int> g;
+    std::vector<std::vector<int>> S;
+    std::vector<bool> is_inf;
 
-    std::vector<std::vector<int>> G(n + 1), Gr(n + 1);
-    std::vector<std::set<int>> se(n + 1);
-
-    for (int i = 0; i < m; ++i) {
-        int x, y;
-        std::cin >> x >> y;
-        if (se[x].find(y) == se[x].end()) {
-            se[x].insert(y);
-            G[x].push_back(y);
-            Gr[y].push_back(x);
+    void read() {
+        std::cin >> n >> m;
+        G.resize(n + 1);
+        Gr.resize(n + 1);
+        for (int i = 0; i < m; ++i) {
+            int u, v;
+            std::cin >> u >> v;
+            G[u].push_back(v);
+            Gr[v].push_back(u);
         }
     }
 
-    std::vector<int> smith(n + 1, -1);
-    std::vector<bool> marked(n + 1);
-    std::vector<int> target(n + 1);
-    std::vector<int> out_cnt(n + 1);
+    void solve() {
+        g.resize(n + 1, -1);
+        S.resize(n + 1);
+        is_inf.resize(n + 1);
 
-    for (int v = 1; v <= n; ++v) {
-        out_cnt[v] = (int)G[v].size();
-    }
+        std::vector<int> cnt(n + 1);
+        std::vector<int> layer1;
+        std::vector<bool> marked(n + 1, 1);
+        std::vector<bool> has(n + 1);
 
-    std::vector<std::queue<int>> qs(n + 2);
-
-    for (int v = 1; v <= n; ++v) {
-       if (out_cnt[v] == 0) {
-           qs[0].push(v);
+        for (int i = 1; i <= n; ++i) {
+            cnt[i] = (int)G[i].size();
+            layer1.push_back(i);
         }
-    }
 
-    for (int k = 0; k <= n; ++k) {
-        std::queue<int>& q = qs[k];
-        while (!q.empty()) {
-            int v = q.front(); q.pop();
+        std::vector<int> deg(n + 1);
+        std::vector<bool> has_k(n + 1);
+        std::vector<bool> is_k(n + 1);
 
-            if (marked[v] || target[v] != k || out_cnt[v] != 0) {   
-                continue;
+        for (int k = 0; k <= n; ++k) {
+            if (layer1.empty()) {
+                break;
             }
 
-            smith[v] = k;
-            marked[v] = true;
-
-            for (int u : Gr[v]) {
-                if (marked[u] || target[u] != k) {
-                    continue;
+            if (k > 0) {
+                for (int u : layer1) {
+                    if (marked[u] && !has[u]) {
+                        marked[u] = 0;
+                    }
                 }
+            }
 
-                for (int w : Gr[u]) {
-                    if (!marked[w] && target[w] == k) {
-                        out_cnt[w]--;
-                        if (out_cnt[w] == 0) {
-                            q.push(w);
+            std::queue<int> q;
+            for (int u : layer1) {
+                has[u] = 0;
+                has_k[u] = 0;
+                is_k[u] = 0;
+                deg[u] = cnt[u];
+                
+                if (marked[u] && deg[u] == 0) {
+                    is_k[u] = true;
+                    q.push(u);
+                }
+            }
+
+            bool found = 0;
+            while (!q.empty()) {
+                int u = q.front(); q.pop();
+                g[u] = k;
+                found = true;
+
+                for (int v : Gr[u]) {
+                    has[v] = 1;
+                    if (g[v] == -1 && !has_k[v]) {
+                        has_k[v] = 1;
+                        for (int p : Gr[v]) {
+                            if (g[p] == -1) {
+                                deg[p]--;
+                                if (deg[p] == 0 && marked[p] && !has_k[p] && !is_k[p]) {
+                                    is_k[p] = 1;
+                                    q.push(p);
+                                }
+                            }
                         }
                     }
                 }
+            }
 
-                target[u] = k + 1;
+            if (!found) {
+                break;
+            }
 
-                int cnt = 0;
-                for (int x : G[u]) {    
-                    if (!marked[x] && target[x] == k + 1) {
-                        cnt++;
+            std::vector<int> layer2;
+            for (int u : layer1) {
+                if (g[u] == -1) {
+                    layer2.push_back(u);
+                } else {
+                    for (int p : Gr[u]) {
+                        cnt[p]--;
                     }
                 }
-                out_cnt[u] = cnt;
+            }
+            std::swap(layer1, layer2);
+        }
 
-                for (int w : Gr[u]) {
-                    if (!marked[w] && target[w] == k + 1) {
-                        out_cnt[w]++;
+        for (int u = 1; u <= n; ++u) {
+            if (g[u] == -1) {
+                is_inf[u] = 1;
+                for (int v : G[u]) {
+                    if (g[v] != -1) {
+                        S[u].push_back(g[v]);
                     }
                 }
-
-                if (cnt == 0) {
-                    qs[k + 1].push(u);
-                }
+                std::sort(S[u].begin(), S[u].end());
+                S[u].erase(std::unique(S[u].begin(), S[u].end()), S[u].end());
             }
         }
     }
+};
 
-    for (int v = 1; v <= n; v++) {
-        std::cout << smith[v] << " ";
+Graph G1, G2;
+
+int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(0);
+
+    G1.read();
+
+    G1.solve();
+
+    for (int i = 0; i < G1.n; i++) {
+        std::cout << G1.g[i + 1] << ' ';
     }
     std::cout << '\n';
 }
